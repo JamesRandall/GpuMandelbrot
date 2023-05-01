@@ -8,6 +8,7 @@ main();
 
 async function main() {
   const canvas = document.querySelector("#glcanvas");
+  
   // Initialize the GL context
   const gl = canvas.getContext("webgl2");
   // Only continue if WebGL is available and working
@@ -25,45 +26,51 @@ async function main() {
   var yMin = -1.0;
   var yMax = 1.0;
 
-  function drag(ev) {
+  function drag(movementX, movementY) {
     const xDelta = (xMax - xMin) / canvas.width;
     const yDelta = (yMax - yMin) / canvas.height;
-    xMin -= ev.movementX * xDelta;
-    xMax -= ev.movementX * xDelta;
-    yMin += ev.movementY * yDelta;
-    yMax += ev.movementY * yDelta;
+    xMin -= movementX * xDelta;
+    xMax -= movementX * xDelta;
+    yMin += movementY * yDelta;
+    yMax += movementY * yDelta;
   }
 
-  canvas.onpointerdown = (ev) => {
-    canvas.setPointerCapture(ev.pointerId);
-    canvas.onpointermove = drag;
-  };
-  canvas.onpointerup = (ev) => {
-    canvas.onpointermove = null;
-    canvas.releasePointerCapture(ev.pointerId);
-  }
-
-  canvas.onwheel = (ev) => {
+  function zoom(clientX, clientY, evDeltaY) {
     // A Google Maps style zoom and keep the point under the mouse in the same position type approach
     const xDelta = (xMax - xMin) / canvas.width;
     const yDelta = (yMax - yMin) / canvas.width;
 
-    const mouseX = ev.clientX / canvas.width;
-    const mouseY = (canvas.height - ev.clientY) / canvas.height;
+    const mouseX = clientX / canvas.width;
+    const mouseY = (canvas.height - clientY) / canvas.height;
 
     const viewWidth = xMax - xMin;
     const viewHeight = yMax - yMin;
     const viewMouseX = xMin + mouseX * viewWidth;
     const viewMouseY = yMin + mouseY * viewHeight;
 
-    const newWidth = viewWidth - ev.deltaY * xDelta;
-    const newHeight = viewHeight - ev.deltaY * yDelta;
+    const newWidth = viewWidth - evDeltaY * xDelta;
+    const newHeight = viewHeight - evDeltaY * yDelta;
 
     xMin = viewMouseX - mouseX * newWidth;
     yMin = viewMouseY - mouseY * newHeight;
     xMax = xMin + newWidth;
     yMax = yMin + newHeight;
   }
+
+  // Touch and mouse events
+  var activeTouchRegion = ZingTouch.Region(canvas);
+  activeTouchRegion.bind(canvas, 'distance', function(event){
+    event.preventDefault();
+    zoom(event.detail.center.x, event.detail.center.y, event.detail.change*5);
+  });
+
+  activeTouchRegion.bind(canvas, 'pan', function(event){
+    event.preventDefault();
+    var movementX = event.detail.data[0].change.x;
+    var movementY = event.detail.data[0].change.y;
+    drag(movementX, movementY);
+  });
+  canvas.onwheel = ev => zoom(ev.clientX, ev.clientY, ev.deltaY);
 
   function draw() {
     if (canvas.width != window.innerWidth || canvas.height != window.innerHeight) {
